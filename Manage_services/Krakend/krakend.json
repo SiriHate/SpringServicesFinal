@@ -1,0 +1,101 @@
+{
+  "$schema": "https://www.krakend.io/schema/v3.json",
+  "version": 3,
+  "name": "KrakenD - API Gateway for microservices",
+  "timeout": "30000ms",
+  "cache_ttl": "3000s",
+  "endpoints": [
+    {
+      "endpoint": "/main/display_order",
+      "method": "GET",
+      "input_query_strings": ["id"],
+      "backend": [
+        {
+          "url_pattern": "/display_report",
+          "method": "GET",
+          "host": [
+            "service1:8081"
+          ]
+        },
+        {
+          "url_pattern": "/display_payment",
+          "method": "GET",
+          "host": [
+            "service2:8082"
+          ]
+        }
+      ]
+    },
+    {
+      "endpoint": "/main/display_all_orders",
+      "method": "GET",
+      "backend": [
+        {
+          "url_pattern": "/display_all_reports",
+          "method": "GET",
+          "host": [
+            "service1:8081"
+          ],
+          "is_collection": true,
+          "mapping": {
+            "collection": "reports"
+          }
+        },
+        {
+          "url_pattern": "/display_all_payments",
+          "method": "GET",
+          "host": [
+            "service2:8082"
+          ],
+          "is_collection": true,
+          "mapping": {
+            "collection": "payments"
+          }
+        }
+      ],
+      "extra_config": {
+        "auth/validator": {
+            "alg": "RS256",
+            "jwk_url": "http://host.docker.internal:8443/auth/realms/krakend/protocol/openid-connect/certs",
+            "disable_jwk_security": true,
+            "operation_debug": true
+        }
+      }
+    },
+    {
+      "endpoint": "/second/health_check",
+      "method": "GET",
+      "backend": [{"host": ["service1:8082"], "method": "GET", "url_pattern": "/main/health_check"},
+      {"host": ["service2:8082"], "method": "GET", "url_pattern": "/main/health_check"}],
+      "extra_config": {
+        "proxy": {
+          "static": {
+            "data": {
+              "status": "UP"
+            },
+            "strategy": "always"
+          }
+        }
+      }
+    }
+  ],
+  "extra_config":{
+    "telemetry/opencensus": {
+      "sample_rate": 100,
+      "reporting_period": 0,
+      "exporters": {
+        "jaeger": {
+          "endpoint": "http://jaeger:14268/api/traces",
+          "service_name":"krakend",
+          "buffer_max_count": 1000
+        }
+      }
+    },
+    "router": {
+      "return_error_msg": true
+    }
+  },
+  "output_encoding": "json",
+  "debug_endpoint": true,
+  "port": 8080
+}
